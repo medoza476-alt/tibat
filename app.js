@@ -429,11 +429,12 @@ async function vRefer() {
   const st = {pending: ['รอตรวจสอบ', 'warn'], approved: ['เข้าร่วมแล้ว', ''], new: ['ทีมงานกำลังติดต่อ', 'gray'], closed: ['สนามยังไม่สนใจ', 'gray']};
   const vs = r.venues.map(v => `<div class="card" style="padding:10px 12px"><div class="row between"><b>${esc(v.name)}</b><span class="chip ${v.paid ? '' : st[v.status][1]}">${v.paid ? `ได้รับ ${baht(r.reward)} แล้ว` : st[v.status][0]}</span></div>
     ${v.paid ? '' : `<div style="background:#e9edeb;border-radius:99px;height:8px;margin:8px 0 4px;overflow:hidden"><div style="background:var(--g);height:100%;width:${Math.min(100, v.hours / (r.threshold + 1) * 100)}%"></div></div>
-    <div class="sm mut">จองออนไลน์แล้ว ${v.hours} ชม. — ครบเกิน ${r.threshold} ชม. รับเครดิต ${baht(r.reward)}</div>`}</div>`).join('');
+    <div class="sm mut">${v.hours > r.threshold ? '✅' : '⏳'} จองออนไลน์แล้ว ${v.hours} ชม. (ต้องเกิน ${r.threshold} ชม.)</div>
+    <div class="sm mut">${v.fee_paid ? '✅ สนามชำระค่าบริการให้ตีแบตแล้ว' : '⏳ รอสนามชำระค่าบริการรอบแรกให้ตีแบต'}</div>`}</div>`).join('');
   const ls = r.leads.map(l => `<div class="card row between" style="padding:10px 12px"><span>${esc(l.name)}</span><span class="chip ${st[l.status][1]}">${st[l.status][0]}</span></div>`).join('');
   return `<h2>ชวนสนามที่คุณเล่นประจำ</h2>
     <div class="card" style="background:var(--gl)"><b>🎁 รับเครดิตจองสนาม ${baht(r.reward)} ต่อสนามที่คุณชวนเข้ามา</b>
-      <div class="sm" style="margin-top:4px">ได้รับเมื่อสนามนั้นมีการจองออนไลน์จากลูกค้าคนอื่นเกิน ${r.threshold} ชั่วโมง ใช้เครดิตจองได้ทุกสนามในตีแบต</div>
+      <div class="sm" style="margin-top:4px">ได้รับเมื่อสนามนั้น (1) มีการจองออนไลน์จากลูกค้าคนอื่นเกิน ${r.threshold} ชั่วโมง และ (2) ชำระค่าบริการรายเดือนให้ตีแบตแล้ว ใช้เครดิตจองได้ทุกสนามในตีแบต</div>
       <div class="kv t" style="font-size:15px"><span>เครดิตของฉัน</span><span>${baht(r.credit)}</span></div></div>
     <div class="card"><b>วิธีที่ 1 — บอกเรา แล้วทีมตีแบตโทรชวนให้</b>
       <label>ชื่อสนาม</label><input id="lName">
