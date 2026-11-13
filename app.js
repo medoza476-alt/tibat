@@ -29,7 +29,7 @@ const ERR = {
   name_required: 'กรุณากรอกชื่อผู้จอง', too_many_holds: 'คุณมีรายการรอชำระค้างอยู่ 3 รายการ กรุณาชำระหรือยกเลิกก่อน',
   online_disabled: 'สนามนี้ยังไม่เปิดรับจองออนไลน์', package_unavailable: 'คอร์ทว่างไม่พอสำหรับแพ็กเกจนี้', package_not_found: 'ไม่พบแพ็กเกจ', package_invalid: 'แพ็กเกจไม่ตรงกับเวลาทำการของสนาม',
   frontdesk_required: 'ต้องเปิดใช้ระบบหน้าร้านก่อน', forbidden: 'ไม่มีสิทธิ์ทำรายการนี้', nothing_due: 'ไม่มีค่าบริการค้างชำระ',
-  payment_account_required: 'กรุณากรอกพร้อมเพย์และชื่อบัญชีรับเงิน', too_many_pending: 'มีสนามรออนุมัติมากเกินไป', order_not_found: 'ไม่พบรายการ', too_many_leads: 'คุณแนะนำสนามที่รอติดต่ออยู่ครบ 5 แห่งแล้ว', lead_contact_required: 'กรุณาใส่เบอร์โทรหรือลิงก์ของสนามอย่างน้อยหนึ่งอย่าง', invite_not_found: 'ลิงก์คำเชิญนี้ใช้ไม่ได้หรือถูกใช้ไปแล้ว', line_required: 'ต้องเข้าสู่ระบบด้วย LINE ก่อนลงทะเบียนสนาม', documents_required: 'กรุณาแนบรูปหลักฐานให้ครบ 3 รูป', public_link_required: 'กรุณาใส่ลิงก์ Google Maps หรือเพจของสนาม (ขึ้นต้นด้วย https://)', verification_incomplete: 'ยังตรวจสอบไม่ครบทุกข้อ และต้องบันทึกชื่อบัญชีที่เห็นจากการโอนทดสอบ', probation_limit: 'สนามนี้เพิ่งเข้าระบบ จึงจำกัดยอดต่อรายการไว้ชั่วคราว กรุณาลดจำนวนชั่วโมง', report_requires_booking: 'รายงานได้เฉพาะผู้ที่เคยจองสนามนี้', locked_after_approval: 'ข้อมูลนี้ล็อกหลังอนุมัติ กรุณาติดต่อทีมตีแบต',
+  payment_account_required: 'กรุณากรอกพร้อมเพย์และชื่อบัญชีรับเงิน', too_many_pending: 'มีสนามรออนุมัติมากเกินไป', order_not_found: 'ไม่พบรายการ', order_not_free: 'รายการนี้ยังมียอดที่ต้องโอน', too_many_leads: 'คุณแนะนำสนามที่รอติดต่ออยู่ครบ 5 แห่งแล้ว', lead_contact_required: 'กรุณาใส่เบอร์โทรหรือลิงก์ของสนามอย่างน้อยหนึ่งอย่าง', invite_not_found: 'ลิงก์คำเชิญนี้ใช้ไม่ได้หรือถูกใช้ไปแล้ว', line_required: 'ต้องเข้าสู่ระบบด้วย LINE ก่อนลงทะเบียนสนาม', documents_required: 'กรุณาแนบรูปหลักฐานให้ครบ 3 รูป', public_link_required: 'กรุณาใส่ลิงก์ Google Maps หรือเพจของสนาม (ขึ้นต้นด้วย https://)', verification_incomplete: 'ยังตรวจสอบไม่ครบทุกข้อ และต้องบันทึกชื่อบัญชีที่เห็นจากการโอนทดสอบ', probation_limit: 'สนามนี้เพิ่งเข้าระบบ จึงจำกัดยอดต่อรายการไว้ชั่วคราว กรุณาลดจำนวนชั่วโมง', report_requires_booking: 'รายงานได้เฉพาะผู้ที่เคยจองสนามนี้', locked_after_approval: 'ข้อมูลนี้ล็อกหลังอนุมัติ กรุณาติดต่อทีมตีแบต',
 };
 const errMsg = e => ERR[e?.message] || e?.message || 'เกิดข้อผิดพลาด';
 function toast(t) { const el = document.createElement('div'); el.className = 'toast'; el.textContent = t; document.body.appendChild(el); setTimeout(() => el.remove(), 2800); }
@@ -231,6 +231,7 @@ async function vVenue() {
   S.sel = S.sel.filter(s => !S.taken[`${s.court}-${s.hour}`]);
   const pa = await rpc('venue_public_account', {p_venue: v.id}).catch(() => null);
   S.feeWaived = !!pa?.fee_waived;
+  S.credit = Number(await rpc('my_credit').catch(() => 0)) || 0;
   const me = S.me || S.meFallback, td = today(), nh = nowH();
   const dates = Array.from({length: v.advance_days + 1}, (_, i) => addDays(td, i));
   let rows = '';
@@ -278,7 +279,8 @@ function selSummary() {
   const court = S.sel.reduce((a, s) => a + priceFor(v, S.date, s.hour).price, 0), f = S.feeWaived ? 0 : S.sel.length * fee();
   return `<div class="kv"><span>${S.sel.length} คอร์ท-ชม. · ${thD(S.date)}</span><span>${baht(court)}</span></div>
     <div class="kv sm mut"><span>${S.feeWaived ? '🎁 ค่าบริการจอง — ฟรีเพราะคุณชวนสนามนี้' : `ค่าบริการจอง (${fee()} บาท × ${S.sel.length})`}</span><span>${baht(f)}</span></div>
-    <div class="kv t"><span>รวม</span><span>${baht(court + f)}</span></div>
+    ${S.credit > 0 ? `<div class="kv sm" style="color:var(--gd)"><span>🎁 ใช้เครดิตของคุณ</span><span>−${baht(Math.min(S.credit, court + f))}</span></div>` : ''}
+    <div class="kv t"><span>รวม</span><span>${baht(Math.max(0, court + f - (S.credit || 0)))}</span></div>
     <button class="btn" style="margin-top:8px" onclick="askCustomer('slots')">จองและชำระเงิน</button>`;
 }
 function askCustomer(kind, id) {
@@ -331,6 +333,12 @@ async function vPay() {
   if (o.status === 'confirmed') return confirmedHtml(o) + `<button class="btn" style="margin-top:12px" onclick="afterPay()">เสร็จสิ้น</button>`;
   if (o.status !== 'hold') return `<div class="card"><b>รายการนี้หมดเวลาชำระแล้ว</b><p class="sm mut" style="margin:6px 0 12px">คอร์ทถูกปล่อยคืนแล้ว กรุณาทำรายการใหม่ หากโอนเงินไปแล้วให้กดส่งสลิปด้านล่างเพื่อให้ระบบพยายามคืนคอร์ทให้</p>
       <input type="file" accept="image/*" onchange="S.slipFile=this.files[0];sendSlip()"><button class="btn ghost" style="margin-top:10px" onclick="afterPay()">กลับ</button></div>`;
+  if (Number(o.amount) === 0 && (o.kind === 'online' || o.kind === 'package')) return `<h2>ยืนยันการจอง</h2><div class="card"><b>${esc(o.venue.name)}</b>
+      <div class="kv" style="margin-top:8px"><span>ค่าสนาม + ค่าบริการ</span><span>${baht(Number(o.court_total) + Number(o.fee_total))}</span></div>
+      <div class="kv" style="color:var(--gd)"><span>🎁 เครดิตที่ใช้</span><span>−${baht(o.credit_used)}</span></div>
+      <div class="kv t"><span>ยอดโอน</span><span>${baht(0)}</span></div>
+      <button class="btn" style="margin-top:12px" onclick="confirmFree()">ยืนยันการจองด้วยเครดิต</button>
+      <button class="btn ghost" style="margin-top:6px" onclick="cancelOrder()">ยกเลิก</button></div>`;
   if (!S.payInfo) S.payInfo = await rpc('get_payment_info', {p_order: o.id});
   const pi = S.payInfo, toVenue = pi.to === 'venue';
   const title = {online: 'ชำระค่าสนาม', package: 'ชำระค่าแพ็กเกจก๊วน', subscription: 'ชำระค่าระบบหน้าร้าน (1 เดือน)', fees: 'ชำระค่าบริการจองออนไลน์'}[o.kind];
@@ -350,7 +358,7 @@ async function vPay() {
     <div class="note" style="margin-bottom:12px">⏱ กรุณาชำระและส่งสลิปภายใน <b id="cd">–</b> ${o.slots.length ? 'ระบบล็อกคอร์ทไว้ให้แล้ว' : ''}</div>
     <div class="card"><div class="row between"><b>${esc(o.venue.name)}</b><span class="sm mut">${o.code}</span></div>${detail}
       <div style="margin-top:10px">${o.kind === 'online' || o.kind === 'package' ? `<div class="kv"><span>ค่าสนาม</span><span>${baht(o.court_total)}</span></div>
-      <div class="kv sm mut"><span>ค่าบริการจอง</span><span>${baht(o.fee_total)}</span></div>` : ''}
+      <div class="kv sm mut"><span>ค่าบริการจอง</span><span>${baht(o.fee_total)}</span></div>${Number(o.credit_used) > 0 ? `<div class="kv sm" style="color:var(--gd)"><span>🎁 เครดิตที่ใช้</span><span>−${baht(o.credit_used)}</span></div>` : ''}` : ''}
       <div class="kv t"><span>ยอดโอน</span><span>${baht(o.amount)}</span></div></div></div>
     <div class="card" style="text-align:center"><div class="b" style="color:#0b3d6e">สแกนจ่ายด้วยแอปธนาคาร (PromptPay)</div>${qr}
       <div class="b" style="font-size:20px;margin-top:6px">${baht(o.amount)}</div><div class="sm mut">โอนให้ตรงยอด มิฉะนั้นระบบจะไม่ยืนยันให้</div></div>
@@ -358,6 +366,7 @@ async function vPay() {
       <input type="file" accept="image/*" onchange="S.slipFile=this.files[0];document.getElementById('slipBtn').disabled=!S.slipFile">
       <button class="btn" id="slipBtn" style="margin-top:10px" disabled onclick="sendSlip()">ส่งสลิปเพื่อยืนยัน</button></div>`;
 }
+async function confirmFree() { try { S.order = await rpc('confirm_free_order', {p_order: S.order.id}); render(); } catch (e) { toast(errMsg(e)); } }
 function startCountdown() {
   const el = $('cd'), o = S.order;
   if (!el || !o?.hold_until) return;
@@ -418,10 +427,14 @@ async function vRefer() {
   const [r, code] = await Promise.all([rpc('my_referrals'), rpc('get_ref_code').catch(() => null)]);
   const link = code ? appLink('ref=' + code) : null;
   const st = {pending: ['รอตรวจสอบ', 'warn'], approved: ['เข้าร่วมแล้ว', ''], new: ['ทีมงานกำลังติดต่อ', 'gray'], closed: ['สนามยังไม่สนใจ', 'gray']};
-  const rows = r.venues.map(v => [v.name, v.status, v.status === 'approved' ? `จองฟรีค่าบริการถึง ${thD(v.until)}` : '']).concat(r.leads.map(l => [l.name, l.status, '']));
+  const vs = r.venues.map(v => `<div class="card" style="padding:10px 12px"><div class="row between"><b>${esc(v.name)}</b><span class="chip ${v.paid ? '' : st[v.status][1]}">${v.paid ? `ได้รับ ${baht(r.reward)} แล้ว` : st[v.status][0]}</span></div>
+    ${v.paid ? '' : `<div style="background:#e9edeb;border-radius:99px;height:8px;margin:8px 0 4px;overflow:hidden"><div style="background:var(--g);height:100%;width:${Math.min(100, v.hours / (r.threshold + 1) * 100)}%"></div></div>
+    <div class="sm mut">จองออนไลน์แล้ว ${v.hours} ชม. — ครบเกิน ${r.threshold} ชม. รับเครดิต ${baht(r.reward)}</div>`}</div>`).join('');
+  const ls = r.leads.map(l => `<div class="card row between" style="padding:10px 12px"><span>${esc(l.name)}</span><span class="chip ${st[l.status][1]}">${st[l.status][0]}</span></div>`).join('');
   return `<h2>ชวนสนามที่คุณเล่นประจำ</h2>
-    <div class="card" style="background:var(--gl)"><b>🎁 สนามเข้าร่วม = คุณจองสนามนั้นไม่เสียค่าบริการ ${fee()} บาท/ชม. นาน ${r.months} เดือน</b>
-      <div class="sm" style="margin-top:4px">สิทธิ์นี้เป็นของคุณคนเดียว ใช้ได้กับสนามที่คุณชวนเข้ามา เริ่มนับเมื่อสนามผ่านการตรวจสอบ</div></div>
+    <div class="card" style="background:var(--gl)"><b>🎁 รับเครดิตจองสนาม ${baht(r.reward)} ต่อสนามที่คุณชวนเข้ามา</b>
+      <div class="sm" style="margin-top:4px">ได้รับเมื่อสนามนั้นมีการจองออนไลน์จากลูกค้าคนอื่นเกิน ${r.threshold} ชั่วโมง ใช้เครดิตจองได้ทุกสนามในตีแบต</div>
+      <div class="kv t" style="font-size:15px"><span>เครดิตของฉัน</span><span>${baht(r.credit)}</span></div></div>
     <div class="card"><b>วิธีที่ 1 — บอกเรา แล้วทีมตีแบตโทรชวนให้</b>
       <label>ชื่อสนาม</label><input id="lName">
       <label>เบอร์โทรสนาม</label><input id="lPhone" inputmode="tel">
@@ -430,7 +443,7 @@ async function vRefer() {
       <button class="btn" id="lGo" style="margin-top:12px" onclick="sendLead()">ส่งให้ทีมตีแบต</button></div>
     ${link ? `<div class="card"><b>วิธีที่ 2 — ส่งลิงก์ให้เจ้าของสนามลงทะเบียนเอง</b><div class="sm" style="word-break:break-all;margin:8px 0">${esc(link)}</div>
       <button class="btn ghost" onclick="copyText('${esc(link)}')">คัดลอกลิงก์ของฉัน</button></div>` : ''}
-    ${rows.length ? `<h3>สนามที่ฉันชวน</h3>` + rows.map(([n, s2, extra]) => `<div class="card row between" style="padding:10px 12px"><span>${esc(n)}${extra ? `<div class="sm mut">${extra}</div>` : ''}</span><span class="chip ${st[s2][1]}">${st[s2][0]}</span></div>`).join('') : ''}`;
+    ${vs || ls ? `<h3>สนามที่ฉันชวน</h3>${vs}${ls}` : ''}`;
 }
 async function sendLead() {
   if ($('lName').value.trim().length < 2) { toast('กรอกชื่อสนาม'); return; }
@@ -480,6 +493,7 @@ async function vOwnerToday() {
       <div class="stat"><div class="sm mut">หน้าร้าน</div><div class="v">${walk.length}</div><div class="sm mut">คอร์ท-ชม.</div></div>
       <div class="stat"><div class="sm mut">รับออนไลน์วันนี้</div><div class="v" style="font-size:17px">${baht(online.reduce((a, s) => a + Number(s.price), 0))}</div><div class="sm mut">เข้าบัญชีสนาม</div></div>
     </div>
+    ${due < 0 ? `<div class="note" style="margin-bottom:10px">ลูกค้าใช้เครดิตตีแบตจองสนามคุณ ตีแบตค้างจ่ายสนาม <b>${baht(-due)}</b> — ระบบจะหักกลบกับค่าบริการรอบถัดไป หรือทีมตีแบตจะโอนให้</div>` : ''}
     ${due > 0 ? `<div class="note" style="margin-bottom:10px">ค่าบริการจองออนไลน์ค้างชำระ <b>${baht(due)}</b> (${fs.orders_due} รายการ — ลูกค้าจ่ายรวมมากับค่าสนามแล้ว)<button class="btn sm" style="margin-top:6px;display:block" onclick="payPlatform('create_fee_order')">ชำระให้ตีแบต</button></div>` : ''}
     ${v.online_enabled ? '' : '<div class="note" style="margin-bottom:10px">การจองออนไลน์ของสนามนี้ถูกปิดชั่วคราว กรุณาติดต่อทีมตีแบต</div>'}
     ${fdActive(v) ? `<div class="chip" style="margin-bottom:8px">ระบบหน้าร้าน: ใช้ได้ถึง ${thD(v.frontdesk_until)}</div>` : `<div class="note" style="margin-bottom:10px">ดูการจองออนไลน์ได้ฟรี · ถ้าต้องการลงจองหน้าร้าน/ทางโทรศัพท์แทนสมุดจด เปิด "ระบบหน้าร้าน" ${esc(S.settings.frontdesk_monthly_fee)} บาท/เดือน <button class="btn sm" style="margin-top:6px;display:block" onclick="payPlatform('create_subscription_order')">เปิดใช้ระบบหน้าร้าน</button></div>`}
@@ -826,7 +840,7 @@ const SETTING_FIELDS = [
   ['liff_id', 'LIFF ID (เช่น 2001234567-AbCdEfGh)'], ['line_channel_id', 'LINE Login Channel ID'],
   ['promptpay_id', 'พร้อมเพย์ของตีแบต (รับค่าบริการจากสนาม)'], ['platform_account_name', 'ชื่อบัญชีของตีแบต'], ['platform_account_no', 'เลขบัญชีของตีแบต (ไม่บังคับ)'],
   ['booking_fee_per_hour', 'ค่าบริการจอง (บาท/คอร์ท-ชม.)'], ['package_fee_cap', 'เพดานค่าบริการต่อแพ็กเกจก๊วน (เว้นว่าง = ไม่จำกัด)'],
-  ['frontdesk_monthly_fee', 'ค่าระบบหน้าร้าน (บาท/เดือน)'], ['hold_minutes', 'เวลารอชำระ (นาที)'], ['probation_days', 'ช่วงสนามใหม่หลังอนุมัติ (วัน)'], ['probation_max_amount', 'ยอดสูงสุดต่อรายการช่วงสนามใหม่ (บาท)'], ['invite_free_frontdesk_days', 'ฟรีระบบหน้าร้านสำหรับสนามที่ชวนเข้ามา (วัน, 0 = ไม่แจก)'], ['referral_months', 'สิทธิ์จองฟรีค่าบริการของผู้ชวนสนาม (เดือน)'], ['report_threshold', 'จำนวนผู้รายงานที่ทำให้ปิดจองออนไลน์อัตโนมัติ'],
+  ['frontdesk_monthly_fee', 'ค่าระบบหน้าร้าน (บาท/เดือน)'], ['hold_minutes', 'เวลารอชำระ (นาที)'], ['probation_days', 'ช่วงสนามใหม่หลังอนุมัติ (วัน)'], ['probation_max_amount', 'ยอดสูงสุดต่อรายการช่วงสนามใหม่ (บาท)'], ['invite_free_frontdesk_days', 'ฟรีระบบหน้าร้านสำหรับสนามที่ชวนเข้ามา (วัน, 0 = ไม่แจก)'], ['referral_credit_amount', 'เครดิตรางวัลผู้ชวนสนาม (บาท)'], ['referral_hours_threshold', 'ชั่วโมงจองออนไลน์ที่ต้องเกินก่อนจ่ายรางวัล'], ['referral_months', 'สิทธิ์จองฟรีค่าบริการของผู้ชวน (เดือน, 0 = ปิด)'], ['report_threshold', 'จำนวนผู้รายงานที่ทำให้ปิดจองออนไลน์อัตโนมัติ'],
   ['slip_test_mode', 'โหมดทดสอบสลิป (true/false) — ปิดก่อนเปิดใช้จริง'], ['allow_guest_login', 'อนุญาตผู้ใช้ทดลองไม่ผ่าน LINE (true/false) — ปิดก่อนเปิดใช้จริง'],
 ];
 function vSettings() {
