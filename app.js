@@ -29,7 +29,7 @@ const ERR = {
   name_required: 'กรุณากรอกชื่อผู้จอง', too_many_holds: 'คุณมีรายการรอชำระค้างอยู่ 3 รายการ กรุณาชำระหรือยกเลิกก่อน',
   online_disabled: 'สนามนี้ยังไม่เปิดรับจองออนไลน์', package_unavailable: 'คอร์ทว่างไม่พอสำหรับแพ็กเกจนี้', package_not_found: 'ไม่พบแพ็กเกจ', package_invalid: 'แพ็กเกจไม่ตรงกับเวลาทำการของสนาม',
   frontdesk_required: 'ต้องเปิดใช้ระบบหน้าร้านก่อน', forbidden: 'ไม่มีสิทธิ์ทำรายการนี้', nothing_due: 'ไม่มีค่าบริการค้างชำระ',
-  payment_account_required: 'กรุณากรอกพร้อมเพย์และชื่อบัญชีรับเงิน', too_many_pending: 'มีสนามรออนุมัติมากเกินไป', order_not_found: 'ไม่พบรายการ', order_not_free: 'รายการนี้ยังมียอดที่ต้องโอน', too_many_leads: 'คุณแนะนำสนามที่รอติดต่ออยู่ครบ 5 แห่งแล้ว', lead_contact_required: 'กรุณาใส่เบอร์โทรหรือลิงก์ของสนามอย่างน้อยหนึ่งอย่าง', invite_not_found: 'ลิงก์คำเชิญนี้ใช้ไม่ได้หรือถูกใช้ไปแล้ว', line_required: 'ต้องเข้าสู่ระบบด้วย LINE ก่อนลงทะเบียนสนาม', documents_required: 'กรุณาแนบรูปหลักฐานให้ครบ 3 รูป', public_link_required: 'กรุณาใส่ลิงก์ Google Maps หรือเพจของสนาม (ขึ้นต้นด้วย https://)', verification_incomplete: 'ยังตรวจสอบไม่ครบทุกข้อ และต้องบันทึกชื่อบัญชีที่เห็นจากการโอนทดสอบ', probation_limit: 'สนามนี้เพิ่งเข้าระบบ จึงจำกัดยอดต่อรายการไว้ชั่วคราว กรุณาลดจำนวนชั่วโมง', report_requires_booking: 'รายงานได้เฉพาะผู้ที่เคยจองสนามนี้', locked_after_approval: 'ข้อมูลนี้ล็อกหลังอนุมัติ กรุณาติดต่อทีมตีแบต',
+  payment_account_required: 'กรุณากรอกพร้อมเพย์และชื่อบัญชีรับเงิน', too_many_pending: 'มีสนามรออนุมัติมากเกินไป', order_not_found: 'ไม่พบรายการ', order_not_in_review: 'รายการนี้ไม่ได้รอตรวจสลิปแล้ว', reason_required: 'กรุณาระบุเหตุผลที่ไม่อนุมัติ ลูกค้าจะเห็นข้อความนี้', order_not_free: 'รายการนี้ยังมียอดที่ต้องโอน', too_many_leads: 'คุณแนะนำสนามที่รอติดต่ออยู่ครบ 5 แห่งแล้ว', lead_contact_required: 'กรุณาใส่เบอร์โทรหรือลิงก์ของสนามอย่างน้อยหนึ่งอย่าง', invite_not_found: 'ลิงก์คำเชิญนี้ใช้ไม่ได้หรือถูกใช้ไปแล้ว', line_required: 'ต้องเข้าสู่ระบบด้วย LINE ก่อนลงทะเบียนสนาม', documents_required: 'กรุณาแนบรูปหลักฐานให้ครบ 3 รูป', public_link_required: 'กรุณาใส่ลิงก์ Google Maps หรือเพจของสนาม (ขึ้นต้นด้วย https://)', verification_incomplete: 'ยังตรวจสอบไม่ครบทุกข้อ และต้องบันทึกชื่อบัญชีที่เห็นจากการโอนทดสอบ', probation_limit: 'สนามนี้เพิ่งเข้าระบบ จึงจำกัดยอดต่อรายการไว้ชั่วคราว กรุณาลดจำนวนชั่วโมง', report_requires_booking: 'รายงานได้เฉพาะผู้ที่เคยจองสนามนี้', locked_after_approval: 'ข้อมูลนี้ล็อกหลังอนุมัติ กรุณาติดต่อทีมตีแบต',
 };
 const errMsg = e => ERR[e?.message] || e?.message || 'เกิดข้อผิดพลาด';
 function toast(t) { const el = document.createElement('div'); el.className = 'toast'; el.textContent = t; document.body.appendChild(el); setTimeout(() => el.remove(), 2800); }
@@ -331,6 +331,13 @@ async function vPay() {
   if (!o) return `<div class="empty">ไม่มีรายการรอชำระ</div>`;
   o = S.order = await rpc('get_order', {p_order: o.id});
   if (o.status === 'confirmed') return confirmedHtml(o) + `<button class="btn" style="margin-top:12px" onclick="afterPay()">เสร็จสิ้น</button>`;
+  if (o.status === 'review') return `<div class="card" style="text-align:center"><div style="font-size:40px">⏳</div><h2>รอ${o.kind === 'online' || o.kind === 'package' ? 'สนาม' : 'ทีมตีแบต'}ตรวจสลิป</h2>
+      <p class="sm mut">ระบบตรวจอัตโนมัติยืนยันไม่ได้ จึงส่งสลิปให้ผู้รับเงินตรวจเอง คอร์ทยังล็อกไว้ให้</p>
+      <div class="sm" style="margin-top:8px">${esc(o.venue.name)} · โทร ${esc(o.venue.phone || '-')} · รหัส ${esc(o.code)}</div>
+      <button class="btn ghost" style="margin-top:12px" onclick="afterPay()">กลับ</button></div>`;
+  if (o.status === 'rejected') return `<div class="card"><b>ผู้รับเงินไม่อนุมัติสลิปนี้</b><p class="sm" style="margin:6px 0">เหตุผล: ${esc(o.review_note || '-')}</p>
+      <p class="sm mut">หากโอนเงินไปแล้วและต้องการเงินคืน กรุณาติดต่อ ${esc(o.venue.name)} โทร ${esc(o.venue.phone || '-')} พร้อมรหัส ${esc(o.code)}</p>
+      <button class="btn ghost" style="margin-top:10px" onclick="afterPay()">กลับ</button></div>`;
   if (o.status !== 'hold') return `<div class="card"><b>รายการนี้หมดเวลาชำระแล้ว</b><p class="sm mut" style="margin:6px 0 12px">คอร์ทถูกปล่อยคืนแล้ว กรุณาทำรายการใหม่ หากโอนเงินไปแล้วให้กดส่งสลิปด้านล่างเพื่อให้ระบบพยายามคืนคอร์ทให้</p>
       <input type="file" accept="image/*" onchange="S.slipFile=this.files[0];sendSlip()"><button class="btn ghost" style="margin-top:10px" onclick="afterPay()">กลับ</button></div>`;
   if (Number(o.amount) === 0 && (o.kind === 'online' || o.kind === 'package')) return `<h2>ยืนยันการจอง</h2><div class="card"><b>${esc(o.venue.name)}</b>
@@ -379,19 +386,37 @@ function startCountdown() {
 }
 async function cancelOrder() { try { await rpc('cancel_hold', {p_order: S.order.id}); } catch (_) {} afterPay(); }
 function afterPay() { const k = S.order?.kind; S.order = null; if (k === 'subscription' || k === 'fees') { S.role = 'owner'; go('today'); } else { S.role = 'customer'; go(k ? 'bookings' : 'home'); } }
-async function sendSlip() {
-  if (!S.slipFile) return;
-  modal(`<div style="text-align:center"><div class="spin"></div><div class="b">กำลังตรวจสลิป…</div><div class="sm mut">เช็กยอดเงิน บัญชีผู้รับ และสลิปซ้ำ</div></div>`);
+async function postSlip(mode) {
+  const { data: { session } } = await sb.auth.getSession();
+  const fd = new FormData(); fd.append('order_id', S.order.id); fd.append('file', S.slipFile); fd.append('mode', mode);
+  const ac = new AbortController(); const t = setTimeout(() => ac.abort(), 60000);
   try {
-    const { data: { session } } = await sb.auth.getSession();
-    const fd = new FormData(); fd.append('order_id', S.order.id); fd.append('file', S.slipFile);
-    const r = await fetch(`${CFG.SUPABASE_URL}/functions/v1/verify-slip`, {method: 'POST', headers: {Authorization: `Bearer ${session.access_token}`, apikey: CFG.SUPABASE_KEY}, body: fd});
-    const j = await r.json();
-    if (!j.ok) { modal(`<div style="text-align:center"><div style="font-size:40px">⚠️</div><h2>ยังยืนยันไม่ได้</h2><p class="sm mut">${esc(j.message || 'ตรวจสลิปไม่ผ่าน')}</p><button class="btn" style="margin-top:12px" onclick="closeModal()">ตกลง</button></div>`); return; }
-    S.order = j.order;
+    const r = await fetch(`${CFG.SUPABASE_URL}/functions/v1/verify-slip`, {method: 'POST', headers: {Authorization: `Bearer ${session.access_token}`, apikey: CFG.SUPABASE_KEY}, body: fd, signal: ac.signal});
+    return await r.json();
+  } finally { clearTimeout(t); }
+}
+async function sendSlip(mode = 'auto') {
+  if (!S.slipFile) return;
+  modal(`<div style="text-align:center"><div class="spin"></div><div class="b">${mode === 'review' ? 'กำลังส่งสลิปให้ตรวจ…' : 'กำลังตรวจสลิป…'}</div><div class="sm mut">เช็กยอดเงิน บัญชีผู้รับ และสลิปซ้ำ</div></div>`);
+  let j;
+  try { j = await postSlip(mode); }
+  catch (e) { j = {ok: false, can_review: true, network: true, message: 'เชื่อมต่อระบบตรวจสลิปไม่ได้ (สัญญาณอินเทอร์เน็ตหรือระบบขัดข้องชั่วคราว)'}; }
+  if (j.ok) {
+    S.order = j.order; if (timer) { clearInterval(timer); timer = null; }
     modal(confirmedHtml(j.order, j) + `<button class="btn" style="margin-top:12px" onclick="closeModal();afterPay()">เสร็จสิ้น</button>`);
+    return;
+  }
+  if (j.review) {
     if (timer) { clearInterval(timer); timer = null; }
-  } catch (e) { modal(`<div style="text-align:center"><h2>ส่งสลิปไม่สำเร็จ</h2><p class="sm mut">${esc(errMsg(e))}</p><button class="btn" style="margin-top:12px" onclick="closeModal()">ตกลง</button></div>`); }
+    modal(`<div style="text-align:center"><div style="font-size:40px">📨</div><h2>ส่งให้ตรวจแล้ว</h2><p class="sm mut">${esc(j.message)}</p><p class="sm" style="margin-top:8px">เมื่อตรวจเสร็จ สถานะจะเปลี่ยนในหน้า "การจองของฉัน"</p><button class="btn" style="margin-top:12px" onclick="closeModal();render()">ตกลง</button></div>`);
+    return;
+  }
+  const who = (S.payInfo?.to === 'platform') ? 'ทีมตีแบต' : 'สนาม';
+  modal(`<div style="text-align:center"><div style="font-size:40px">⚠️</div><h2>ระบบยังยืนยันอัตโนมัติไม่ได้</h2><p class="sm mut">${esc(j.message || 'ตรวจสลิปไม่ผ่าน')}</p>
+    ${j.final ? '' : `<p class="sm" style="margin:10px 0">ถ้าคุณโอนถูกต้องแล้ว ส่งสลิปนี้ให้${who}ตรวจเองได้เลย คอร์ทจะล็อกไว้ให้ระหว่างรอ</p>
+    ${j.can_review !== false ? `<button class="btn" onclick="sendSlip('review')">ส่งให้${who}ตรวจ</button>` : ''}
+    ${j.network ? `<button class="btn ghost" style="margin-top:6px" onclick="sendSlip('auto')">ลองตรวจอัตโนมัติอีกครั้ง</button>` : ''}`}
+    <button class="btn ghost" style="margin-top:6px" onclick="closeModal()">แนบสลิปใหม่</button></div>`);
 }
 function confirmedHtml(o, r) {
   if (o.kind === 'subscription' || o.kind === 'fees') return `<div style="text-align:center"><div style="font-size:40px">✅</div><h2>ชำระเรียบร้อย</h2><p class="sm mut">${o.kind === 'subscription' ? 'เปิดใช้ระบบหน้าร้านแล้ว' : 'ชำระค่าบริการจองออนไลน์แล้ว'} · ${baht(o.amount)}</p></div>`;
@@ -408,16 +433,16 @@ function confirmedHtml(o, r) {
 async function vMyBookings() {
   await rpc('venues_free_today'); // also a cheap keep-alive
   const { data, error } = await sb.from('orders').select('id,code,kind,status,amount,package_name,created_at,hold_until,slots(play_date,court_no,hour),venues(name)')
-    .eq('user_id', S.user.id).in('kind', ['online', 'package']).in('status', ['confirmed', 'hold']).order('created_at', {ascending: false}).limit(50);
+    .eq('user_id', S.user.id).in('kind', ['online', 'package']).in('status', ['confirmed', 'hold', 'review', 'rejected']).order('created_at', {ascending: false}).limit(50);
   if (error) throw error;
-  const live = data.filter(o => o.status === 'confirmed' || new Date(o.hold_until) > new Date());
+  const live = data.filter(o => o.status !== 'hold' || new Date(o.hold_until) > new Date());
   if (!live.length) return `<h2>การจองของฉัน</h2><div class="empty">ยังไม่มีการจอง<br><br><button class="btn sm" onclick="go('home')">หาสนามใกล้ฉัน</button></div>`;
   return `<h2>การจองของฉัน</h2>` + live.map(o => {
     const first = o.slots.slice().sort((a, b) => (a.play_date + pad(a.hour)).localeCompare(b.play_date + pad(b.hour)))[0];
-    return `<div class="card"><div class="row between"><b>${esc(o.venues.name)}</b>${o.status === 'confirmed' ? '<span class="chip">ยืนยันแล้ว</span>' : '<span class="chip warn">รอชำระ</span>'}</div>
+    return `<div class="card"><div class="row between"><b>${esc(o.venues.name)}</b>${{confirmed: '<span class="chip">ยืนยันแล้ว</span>', hold: '<span class="chip warn">รอชำระ</span>', review: '<span class="chip warn">รอสนามตรวจสลิป</span>', rejected: '<span class="chip bad">ไม่อนุมัติ</span>'}[o.status]}</div>
       <div class="sm mut" style="margin:4px 0">${o.package_name ? esc(o.package_name) + ' · ' : ''}${o.slots.length} คอร์ท-ชม.${first ? ` · เริ่ม ${thD(first.play_date)} ${hh(first.hour)}` : ''}</div>
       <div class="row between"><span class="sm">รหัส <b>${o.code}</b> · ${baht(o.amount)}</span>
-      <button class="btn sm" onclick="${o.status === 'confirmed' ? `showOrder('${o.id}')` : `openPay({id:'${o.id}'})`}">${o.status === 'confirmed' ? 'ดูใบยืนยัน' : 'ชำระเงิน'}</button></div></div>`;
+      <button class="btn sm" onclick="${o.status === 'confirmed' ? `showOrder('${o.id}')` : `openPay({id:'${o.id}'})`}">${{confirmed: 'ดูใบยืนยัน', hold: 'ชำระเงิน', review: 'ดูสถานะ', rejected: 'ดูเหตุผล'}[o.status]}</button></div></div>`;
   }).join('');
 }
 async function showOrder(id) { try { const o = await rpc('get_order', {p_order: id}); modal(confirmedHtml(o) + `<button class="btn ghost" style="margin-top:12px" onclick="closeModal()">ปิด</button>`); } catch (e) { toast(errMsg(e)); } }
@@ -471,7 +496,9 @@ async function vOwnerToday() {
   const v = await loadMyVenues();
   if (!v) return noVenue();
   if (v.status !== 'approved') return venuePicker() + `<div class="card"><b>${esc(v.name)}</b> ${stChip(v)}<p style="margin-top:8px" class="sm">${v.status === 'pending' ? 'กำลังรอทีมตีแบตตรวจสอบ — ดูรหัสยืนยันและขั้นตอนที่แท็บ "สนามของฉัน" เมื่ออนุมัติแล้วสนามจะขึ้นบนแผนที่ให้ลูกค้าจองได้ทันที' : 'สนามนี้ไม่ผ่านการอนุมัติ กรุณาติดต่อทีมตีแบต'}</p></div>`;
-  const [sch, fs] = await Promise.all([rpc('owner_schedule', {p_venue: v.id, p_date: S.ownerDate}), rpc('owner_fee_summary', {p_venue: v.id})]);
+  const [sch, fs, rv] = await Promise.all([rpc('owner_schedule', {p_venue: v.id, p_date: S.ownerDate}), rpc('owner_fee_summary', {p_venue: v.id}), rpc('owner_reviews', {p_venue: v.id})]);
+  S._reviews = rv || [];
+  const rvUrls = await Promise.all(S._reviews.map(o => o.slip_path ? sb.storage.from('slips').createSignedUrl(o.slip_path, 1800).then(x => x.data?.signedUrl || '') : ''));
   S._sch = sch;
   const by = Object.fromEntries(sch.map(s => [`${s.court_no}-${s.hour}`, s]));
   const online = sch.filter(s => s.kind !== 'walkin' && s.order_status === 'confirmed'), walk = sch.filter(s => s.kind === 'walkin');
@@ -488,7 +515,16 @@ async function vOwnerToday() {
     rows += `<tr><th>${hh(h)}</th>${tds}</tr>`;
   }
   const due = Number(fs.fee_due);
-  return venuePicker() + `
+  const reviewHtml = S._reviews.length ? `<div class="card" style="border:2px solid var(--bad)"><b style="color:var(--bad)">🧾 สลิปรอคุณตรวจ ${S._reviews.length} รายการ</b>
+    <div class="sm mut" style="margin:2px 0 8px">ระบบตรวจอัตโนมัติยืนยันไม่ได้ ลูกค้าส่งสลิปให้คุณตรวจเอง — เช็กว่าเงินเข้าบัญชีสนามจริงตามยอด แล้วกดอนุมัติ</div>` +
+    S._reviews.map((o, i) => `<div style="border-top:1px solid var(--line);padding-top:10px;margin-top:10px">
+      <div class="row between"><b>${esc(o.customer_name || '-')}</b><span class="sm mut">${esc(o.code)}</span></div>
+      <div class="sm">${o.slots.map(x => `${thD(x.play_date)} ค${x.court_no} ${hh(x.hour)}`).slice(0, 4).join(', ')}${o.slots.length > 4 ? ` +${o.slots.length - 4}` : ''}${o.package_name ? ` · ${esc(o.package_name)}` : ''}</div>
+      <div class="kv"><span>ยอดที่ต้องเข้าบัญชีสนาม</span><b>${baht(o.amount)}</b></div>
+      <div class="sm mut">สาเหตุ: ${esc(o.review_reason || '-')} · โทร ${esc(o.phone || '-')}</div>
+      ${rvUrls[i] ? `<a href="${esc(rvUrls[i])}" target="_blank" rel="noopener"><img src="${esc(rvUrls[i])}" class="slipprev" style="max-height:260px" alt="สลิป"></a>` : ''}
+      <div class="grid2" style="margin-top:8px"><button class="btn red" onclick="rejectSlip('${o.id}')">ไม่อนุมัติ</button><button class="btn" onclick="approveSlip('${o.id}', ${Number(o.amount)})">เงินเข้าแล้ว อนุมัติ</button></div></div>`).join('') + `</div>` : '';
+  return venuePicker() + reviewHtml + `
     <div class="grid3" style="margin-bottom:12px">
       <div class="stat"><div class="sm mut">จองออนไลน์</div><div class="v">${online.length}</div><div class="sm mut">คอร์ท-ชม.</div></div>
       <div class="stat"><div class="sm mut">หน้าร้าน</div><div class="v">${walk.length}</div><div class="sm mut">คอร์ท-ชม.</div></div>
@@ -499,10 +535,21 @@ async function vOwnerToday() {
     ${v.online_enabled ? '' : '<div class="note" style="margin-bottom:10px">การจองออนไลน์ของสนามนี้ถูกปิดชั่วคราว กรุณาติดต่อทีมตีแบต</div>'}
     ${fdActive(v) ? `<div class="chip" style="margin-bottom:8px">ระบบหน้าร้าน: ใช้ได้ถึง ${thD(v.frontdesk_until)}</div>` : `<div class="note" style="margin-bottom:10px">ดูการจองออนไลน์ได้ฟรี · ถ้าต้องการลงจองหน้าร้าน/ทางโทรศัพท์แทนสมุดจด เปิด "ระบบหน้าร้าน" ${esc(S.settings.frontdesk_monthly_fee)} บาท/เดือน <button class="btn sm" style="margin-top:6px;display:block" onclick="payPlatform('create_subscription_order')">เปิดใช้ระบบหน้าร้าน</button></div>`}
     <div class="dates">${dates.map(d => `<button class="${S.ownerDate === d ? 'on' : ''}" onclick="S.ownerDate='${d}';render()">${d === td ? 'วันนี้' : thD(d).split(' ')[0]}<br><b>${parseD(d).getDate()}</b></button>`).join('')}</div>
-    <div class="legend" style="margin-bottom:6px"><span><i style="background:var(--g)"></i>ออนไลน์</span><span><i style="background:var(--pur)"></i>แพ็กเกจก๊วน</span><span><i style="background:#5b6762"></i>หน้าร้าน</span><span><i style="background:var(--warn)"></i>รอชำระ</span></div>
+    <div class="legend" style="margin-bottom:6px"><span><i style="background:var(--g)"></i>ออนไลน์</span><span><i style="background:var(--pur)"></i>แพ็กเกจก๊วน</span><span><i style="background:#5b6762"></i>หน้าร้าน</span><span><i style="background:var(--warn)"></i>รอชำระ/รอตรวจสลิป</span></div>
     <div class="slots"><table><tr><th></th>${Array.from({length: v.court_count}, (_, i) => `<th>คอร์ท ${i + 1}</th>`).join('')}</tr>${rows}</table></div>
     <p class="sm mut" style="margin-top:8px">แตะช่องว่าง (+) เพื่อลงจองหน้าร้าน · แตะช่องที่จองแล้วเพื่อดูรายละเอียด/เช็กรหัสจอง</p>`;
 }
+function approveSlip(id, amt) {
+  modal(`<h2>ยืนยันว่าเงินเข้าแล้ว</h2><p class="sm">เปิดแอปธนาคารของสนาม แล้วเช็กว่ามีเงินเข้า <b>${baht(amt)}</b> ตามสลิปจริง ก่อนกดยืนยัน — กดแล้วการจองจะยืนยันทันที</p>
+    <button class="btn" style="margin-top:12px" onclick="decide('${id}', true, '')">เงินเข้าบัญชีแล้ว ยืนยันการจอง</button><button class="btn ghost" style="margin-top:6px" onclick="closeModal()">ยกเลิก</button>`);
+}
+function rejectSlip(id) {
+  modal(`<h2>ไม่อนุมัติสลิป</h2><p class="sm mut">คอร์ทจะถูกปล่อยคืน และลูกค้าจะเห็นเหตุผลนี้ หากลูกค้าโอนมาจริงแต่ยอดไม่ครบ สนามต้องคืนเงินลูกค้าเอง</p>
+    <label>เหตุผล</label><select id="rjPick" onchange="document.getElementById('rjText').value=this.value"><option value="">เลือก…</option><option>ไม่พบเงินเข้าบัญชีสนาม</option><option>ยอดเงินไม่ครบ</option><option>สลิปไม่ชัดหรือไม่ใช่สลิปของรายการนี้</option></select>
+    <textarea id="rjText" rows="2" style="margin-top:6px" placeholder="หรือพิมพ์เหตุผลเอง"></textarea>
+    <button class="btn red" style="margin-top:12px" onclick="decide('${id}', false, document.getElementById('rjText').value)">ยืนยันไม่อนุมัติ</button>`);
+}
+async function decide(id, ok, note) { try { await rpc('owner_decide', {p_order: id, p_ok: ok, p_note: note}); closeModal(); toast(ok ? 'ยืนยันการจองแล้ว' : 'ไม่อนุมัติแล้ว คอร์ทถูกปล่อยคืน'); render(); } catch (e) { toast(errMsg(e)); } }
 async function payPlatform(fn) { try { openPay(await rpc(fn, {p_venue: S.ownerVenueId})); } catch (e) { toast(errMsg(e)); } }
 function walkIn(c, h) {
   const v = S.myVenues.find(x => x.id === S.ownerVenueId);
@@ -526,7 +573,7 @@ async function saveWalkIn(c, h) {
 function bookingInfo(slotId) {
   const b = S._sch.find(s => s.slot_id === slotId), all = S._sch.filter(s => s.order_id === b.order_id);
   const src = {online: 'จองออนไลน์ (ลูกค้าโอนเข้าบัญชีสนามแล้ว)', walkin: 'หน้าร้าน (เก็บเงินที่สนาม)', package: 'แพ็กเกจก๊วน (ลูกค้าโอนเข้าบัญชีสนามแล้ว)'}[b.kind];
-  modal(`<h2>${esc(b.customer_name)}</h2><div class="sm mut">${b.order_status === 'hold' ? 'รอลูกค้าชำระเงิน — ยังไม่ยืนยัน' : src}</div>
+  modal(`<h2>${esc(b.customer_name)}</h2><div class="sm mut">${b.order_status === 'hold' ? 'รอลูกค้าชำระเงิน — ยังไม่ยืนยัน' : b.order_status === 'review' ? 'ลูกค้าส่งสลิปให้คุณตรวจ — ดูด้านบนของหน้าตารางจอง' : src}</div>
     <div class="card" style="margin-top:10px;background:var(--bg)"><div class="kv"><span>รหัสจอง</span><b>${esc(b.code)}</b></div>
     ${b.package_name ? `<div class="kv"><span>แพ็กเกจ</span><span>${esc(b.package_name)}</span></div>` : ''}
     <div class="kv"><span>เบอร์</span><span>${esc(b.phone || '-')}</span></div>
@@ -829,12 +876,20 @@ async function vRevenue() {
 }
 async function adm(fn, args, msg) { try { await rpc(fn, args); toast(msg); render(); } catch (e) { toast(errMsg(e)); } }
 async function vSlips() {
+  const { data: rq } = await sb.from('orders').select('id,code,kind,amount,customer_name,review_reason,slip_path,venues(name)').eq('status', 'review').order('review_since');
+  const plat = (rq || []).filter(o => o.kind === 'fees' || o.kind === 'subscription'), ven = (rq || []).filter(o => o.kind === 'online' || o.kind === 'package');
+  const pUrls = await Promise.all(plat.map(o => o.slip_path ? sb.storage.from('slips').createSignedUrl(o.slip_path, 1800).then(x => x.data?.signedUrl || '') : ''));
+  const head = (plat.length ? `<h2>สลิปค่าบริการรอตีแบตตรวจ (${plat.length})</h2>` + plat.map((o, i) => `<div class="card" style="padding:12px"><div class="row between"><b>${esc(o.venues?.name || '')}</b><span class="sm mut">${esc(o.code)}</span></div>
+      <div class="kv"><span>${o.kind === 'fees' ? 'ค่าบริการจอง' : 'ค่าระบบหน้าร้าน'}</span><b>${baht(o.amount)}</b></div><div class="sm mut">${esc(o.review_reason || '')}</div>
+      ${pUrls[i] ? `<a href="${esc(pUrls[i])}" target="_blank" rel="noopener"><img src="${esc(pUrls[i])}" class="slipprev" alt="สลิป"></a>` : ''}
+      <div class="grid2" style="margin-top:8px"><button class="btn red" onclick="rejectSlip('${o.id}')">ไม่อนุมัติ</button><button class="btn" onclick="approveSlip('${o.id}', ${Number(o.amount)})">เงินเข้าแล้ว</button></div></div>`).join('') : '') +
+    (ven.length ? `<div class="note" style="margin-bottom:10px">มีสลิปค่าสนาม ${ven.length} รายการที่สนามกำลังตรวจเอง (ไม่ต้องทำอะไร)</div>` : '');
   const { data, error } = await sb.from('slip_checks').select('*, orders(code,status,kind,customer_name,venues(name))').order('created_at', {ascending: false}).limit(60);
   if (error) throw error;
-  return `<h2>ผลตรวจสลิปอัตโนมัติ</h2>` + (data.length ? data.map(s => `<div class="card" style="padding:12px"><div class="row between"><b>${esc(s.orders?.code || '-')}</b><span class="chip ${s.ok ? '' : 'bad'}">${s.ok ? 'ผ่าน' : 'ไม่ผ่าน'}</span></div>
+  return head + `<h2>ผลตรวจสลิปอัตโนมัติ</h2>` + (data.length ? data.map(s => `<div class="card" style="padding:12px"><div class="row between"><b>${esc(s.orders?.code || '-')}</b><span class="chip ${s.ok ? '' : 'bad'}">${s.ok ? 'ผ่าน' : 'ไม่ผ่าน'}</span></div>
     <div class="sm mut">${new Date(s.created_at).toLocaleString('th-TH')} · ${esc(s.orders?.customer_name || '')} · ${esc(s.orders?.venues?.name || '')}</div>
     <div class="sm">ต้องชำระ ${baht(s.expected)} · ในสลิป ${s.found == null ? '-' : baht(s.found)}${s.message ? ` · ${esc(s.message)}` : ''}</div>
-    ${!s.ok && s.orders && ['hold', 'expired'].includes(s.orders.status) ? `<button class="btn ghost sm" style="margin-top:6px" onclick="adm('admin_confirm_order',{p_order:'${s.order_id}'},'ยืนยันรายการแล้ว')">ตรวจเองแล้ว — ยืนยันรายการนี้</button>` : ''}</div>`).join('')
+    ${!s.ok && s.orders && ['fees', 'subscription'].includes(s.orders.kind) && ['hold', 'expired'].includes(s.orders.status) ? `<button class="btn ghost sm" style="margin-top:6px" onclick="adm('admin_confirm_order',{p_order:'${s.order_id}'},'ยืนยันรายการแล้ว')">ตรวจเองแล้ว — ยืนยันรายการนี้</button>` : ''}</div>`).join('')
     : '<div class="empty">ยังไม่มีสลิป</div>');
 }
 const SETTING_FIELDS = [
