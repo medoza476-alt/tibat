@@ -29,7 +29,7 @@ const ERR = {
   name_required: 'กรุณากรอกชื่อผู้จอง', too_many_holds: 'คุณมีรายการรอชำระค้างอยู่ 3 รายการ กรุณาชำระหรือยกเลิกก่อน',
   online_disabled: 'สนามนี้ยังไม่เปิดรับจองออนไลน์', package_unavailable: 'คอร์ทว่างไม่พอสำหรับแพ็กเกจนี้', package_not_found: 'ไม่พบแพ็กเกจ', package_invalid: 'แพ็กเกจไม่ตรงกับเวลาทำการของสนาม',
   frontdesk_required: 'ต้องเปิดใช้ระบบหน้าร้านก่อน', forbidden: 'ไม่มีสิทธิ์ทำรายการนี้', nothing_due: 'ไม่มีค่าบริการค้างชำระ',
-  payment_account_required: 'กรุณากรอกพร้อมเพย์และชื่อบัญชีรับเงิน', too_many_pending: 'มีสนามรออนุมัติมากเกินไป', order_not_found: 'ไม่พบรายการ', invite_not_found: 'ลิงก์คำเชิญนี้ใช้ไม่ได้หรือถูกใช้ไปแล้ว', line_required: 'ต้องเข้าสู่ระบบด้วย LINE ก่อนลงทะเบียนสนาม', documents_required: 'กรุณาแนบรูปหลักฐานให้ครบ 3 รูป', public_link_required: 'กรุณาใส่ลิงก์ Google Maps หรือเพจของสนาม (ขึ้นต้นด้วย https://)', verification_incomplete: 'ยังตรวจสอบไม่ครบทุกข้อ และต้องบันทึกชื่อบัญชีที่เห็นจากการโอนทดสอบ', probation_limit: 'สนามนี้เพิ่งเข้าระบบ จึงจำกัดยอดต่อรายการไว้ชั่วคราว กรุณาลดจำนวนชั่วโมง', report_requires_booking: 'รายงานได้เฉพาะผู้ที่เคยจองสนามนี้', locked_after_approval: 'ข้อมูลนี้ล็อกหลังอนุมัติ กรุณาติดต่อทีมตีแบต',
+  payment_account_required: 'กรุณากรอกพร้อมเพย์และชื่อบัญชีรับเงิน', too_many_pending: 'มีสนามรออนุมัติมากเกินไป', order_not_found: 'ไม่พบรายการ', too_many_leads: 'คุณแนะนำสนามที่รอติดต่ออยู่ครบ 5 แห่งแล้ว', lead_contact_required: 'กรุณาใส่เบอร์โทรหรือลิงก์ของสนามอย่างน้อยหนึ่งอย่าง', invite_not_found: 'ลิงก์คำเชิญนี้ใช้ไม่ได้หรือถูกใช้ไปแล้ว', line_required: 'ต้องเข้าสู่ระบบด้วย LINE ก่อนลงทะเบียนสนาม', documents_required: 'กรุณาแนบรูปหลักฐานให้ครบ 3 รูป', public_link_required: 'กรุณาใส่ลิงก์ Google Maps หรือเพจของสนาม (ขึ้นต้นด้วย https://)', verification_incomplete: 'ยังตรวจสอบไม่ครบทุกข้อ และต้องบันทึกชื่อบัญชีที่เห็นจากการโอนทดสอบ', probation_limit: 'สนามนี้เพิ่งเข้าระบบ จึงจำกัดยอดต่อรายการไว้ชั่วคราว กรุณาลดจำนวนชั่วโมง', report_requires_booking: 'รายงานได้เฉพาะผู้ที่เคยจองสนามนี้', locked_after_approval: 'ข้อมูลนี้ล็อกหลังอนุมัติ กรุณาติดต่อทีมตีแบต',
 };
 const errMsg = e => ERR[e?.message] || e?.message || 'เกิดข้อผิดพลาด';
 function toast(t) { const el = document.createElement('div'); el.className = 'toast'; el.textContent = t; document.body.appendChild(el); setTimeout(() => el.remove(), 2800); }
@@ -97,6 +97,8 @@ async function boot() {
     locate();
     S.date = today(); S.ownerDate = today();
     const dp = new URLSearchParams(location.search), inv = dp.get('invite') || DEEP0.get('invite'), dv = dp.get('v') || DEEP0.get('v');
+    const rf = dp.get('ref') || DEEP0.get('ref');
+    if (rf) { S.refCode = rf; S.role = 'owner'; S.route = 'register'; }
     if (inv) { S.role = 'owner'; S.route = 'claim'; S.inviteCode = inv; }
     else if (dv) { await loadVenues(); const v = S.venues.find(x => x.id === dv); if (v) { S.venue = v; S.route = 'venue'; S.sel = []; } }
     render();
@@ -124,7 +126,7 @@ function go(route, extra) {
 }
 function setRole(r) { S.role = r; go({customer: 'home', owner: 'today', admin: 'approve'}[r]); }
 const VIEWS = {
-  customer: {home: vHome, venue: vVenue, pay: vPay, bookings: vMyBookings},
+  customer: {home: vHome, venue: vVenue, pay: vPay, bookings: vMyBookings, refer: vRefer},
   owner: {today: vOwnerToday, pricing: vPricing, venue: vOwnerVenue, register: vRegister, pay: vPay, claim: vClaim},
   admin: {approve: vApprove, invite: vInvite, revenue: vRevenue, slips: vSlips, settings: vSettings},
 };
@@ -135,7 +137,7 @@ async function render() {
   if (S.profile?.is_admin) roles.push(['admin', '🛠 แอดมิน']);
   $('roles').innerHTML = roles.map(([k, t]) => `<button class="${S.role === k ? 'on' : ''}" onclick="setRole('${k}')">${t}</button>`).join('');
   const navs = {
-    customer: [['home', '🔍', 'หาสนาม'], ['bookings', '🎫', 'การจองของฉัน']],
+    customer: [['home', '🔍', 'หาสนาม'], ['bookings', '🎫', 'การจองของฉัน'], ['refer', '🎁', 'ชวนสนาม']],
     owner: [['today', '📅', 'ตารางจอง'], ['pricing', '🏷️', 'ราคา/โปร'], ['venue', '🏟️', 'สนามของฉัน'], ['register', '➕', 'ลงทะเบียน']],
     admin: [['approve', '✅', 'อนุมัติ'], ['invite', '📞', 'ชวนสนาม'], ['revenue', '💰', 'รายได้'], ['slips', '🧾', 'สลิป'], ['settings', '⚙️', 'ตั้งค่า']],
   }[S.role];
@@ -228,6 +230,7 @@ async function vVenue() {
   S.taken = Object.fromEntries((av || []).map(a => [`${a.court_no}-${a.hour}`, a.status]));
   S.sel = S.sel.filter(s => !S.taken[`${s.court}-${s.hour}`]);
   const pa = await rpc('venue_public_account', {p_venue: v.id}).catch(() => null);
+  S.feeWaived = !!pa?.fee_waived;
   const me = S.me || S.meFallback, td = today(), nh = nowH();
   const dates = Array.from({length: v.advance_days + 1}, (_, i) => addDays(td, i));
   let rows = '';
@@ -272,9 +275,9 @@ function toggleSlot(td, c, h) {
 function selSummary() {
   const v = S.venue;
   if (!S.sel.length) return `<div class="sm mut" style="text-align:center">แตะช่องว่างในตารางเพื่อเลือก (เลือกได้หลายคอร์ท/หลายชั่วโมง)</div>`;
-  const court = S.sel.reduce((a, s) => a + priceFor(v, S.date, s.hour).price, 0), f = S.sel.length * fee();
+  const court = S.sel.reduce((a, s) => a + priceFor(v, S.date, s.hour).price, 0), f = S.feeWaived ? 0 : S.sel.length * fee();
   return `<div class="kv"><span>${S.sel.length} คอร์ท-ชม. · ${thD(S.date)}</span><span>${baht(court)}</span></div>
-    <div class="kv sm mut"><span>ค่าบริการจอง (${fee()} บาท × ${S.sel.length})</span><span>${baht(f)}</span></div>
+    <div class="kv sm mut"><span>${S.feeWaived ? '🎁 ค่าบริการจอง — ฟรีเพราะคุณชวนสนามนี้' : `ค่าบริการจอง (${fee()} บาท × ${S.sel.length})`}</span><span>${baht(f)}</span></div>
     <div class="kv t"><span>รวม</span><span>${baht(court + f)}</span></div>
     <button class="btn" style="margin-top:8px" onclick="askCustomer('slots')">จองและชำระเงิน</button>`;
 }
@@ -409,6 +412,32 @@ async function vMyBookings() {
   }).join('');
 }
 async function showOrder(id) { try { const o = await rpc('get_order', {p_order: id}); modal(confirmedHtml(o) + `<button class="btn ghost" style="margin-top:12px" onclick="closeModal()">ปิด</button>`); } catch (e) { toast(errMsg(e)); } }
+
+// ---------- customer: refer a venue ----------
+async function vRefer() {
+  const [r, code] = await Promise.all([rpc('my_referrals'), rpc('get_ref_code').catch(() => null)]);
+  const link = code ? appLink('ref=' + code) : null;
+  const st = {pending: ['รอตรวจสอบ', 'warn'], approved: ['เข้าร่วมแล้ว', ''], new: ['ทีมงานกำลังติดต่อ', 'gray'], closed: ['สนามยังไม่สนใจ', 'gray']};
+  const rows = r.venues.map(v => [v.name, v.status, v.status === 'approved' ? `จองฟรีค่าบริการถึง ${thD(v.until)}` : '']).concat(r.leads.map(l => [l.name, l.status, '']));
+  return `<h2>ชวนสนามที่คุณเล่นประจำ</h2>
+    <div class="card" style="background:var(--gl)"><b>🎁 สนามเข้าร่วม = คุณจองสนามนั้นไม่เสียค่าบริการ ${fee()} บาท/ชม. นาน ${r.months} เดือน</b>
+      <div class="sm" style="margin-top:4px">สิทธิ์นี้เป็นของคุณคนเดียว ใช้ได้กับสนามที่คุณชวนเข้ามา เริ่มนับเมื่อสนามผ่านการตรวจสอบ</div></div>
+    <div class="card"><b>วิธีที่ 1 — บอกเรา แล้วทีมตีแบตโทรชวนให้</b>
+      <label>ชื่อสนาม</label><input id="lName">
+      <label>เบอร์โทรสนาม</label><input id="lPhone" inputmode="tel">
+      <label>ลิงก์ Google Maps หรือเพจ (ถ้ามี)</label><input id="lLink" inputmode="url" placeholder="https://">
+      <label>ฝากบอกทีมงาน (เช่น ชื่อเจ้าของ เวลาที่สะดวกรับสาย)</label><input id="lNote">
+      <button class="btn" id="lGo" style="margin-top:12px" onclick="sendLead()">ส่งให้ทีมตีแบต</button></div>
+    ${link ? `<div class="card"><b>วิธีที่ 2 — ส่งลิงก์ให้เจ้าของสนามลงทะเบียนเอง</b><div class="sm" style="word-break:break-all;margin:8px 0">${esc(link)}</div>
+      <button class="btn ghost" onclick="copyText('${esc(link)}')">คัดลอกลิงก์ของฉัน</button></div>` : ''}
+    ${rows.length ? `<h3>สนามที่ฉันชวน</h3>` + rows.map(([n, s2, extra]) => `<div class="card row between" style="padding:10px 12px"><span>${esc(n)}${extra ? `<div class="sm mut">${extra}</div>` : ''}</span><span class="chip ${st[s2][1]}">${st[s2][0]}</span></div>`).join('') : ''}`;
+}
+async function sendLead() {
+  if ($('lName').value.trim().length < 2) { toast('กรอกชื่อสนาม'); return; }
+  $('lGo').disabled = true;
+  try { await rpc('submit_venue_lead', {p_name: $('lName').value, p_phone: $('lPhone').value, p_link: $('lLink').value, p_note: $('lNote').value}); toast('ส่งแล้ว ขอบคุณที่ช่วยชวน'); render(); }
+  catch (e) { toast(errMsg(e)); $('lGo').disabled = false; }
+}
 
 // ---------- owner ----------
 async function loadMyVenues() {
@@ -638,6 +667,7 @@ async function submitReg() {
     const photo_url = f ? await uploadPhoto(f) : null;
     S.ownerVenueId = await rpc('register_venue', {p: {name, address, lat: S.regPick.lat, lng: S.regPick.lng, court_count: +$('rCourts').value, open_hour: +$('rOpen').value, close_hour: +$('rClose').value,
       price_per_hour: +$('rPrice').value, advance_days: +$('rAdv').value, phone: $('rPhone').value, photo_url, promptpay_id: $('rPP').value, account_name: $('rAcc').value, bank_account_no: $('rBank').value, doc_account, doc_front, doc_inside, public_link: $('rLink').value.trim()}});
+    if (S.refCode) { await rpc('set_referrer', {p_venue: S.ownerVenueId, p_code: S.refCode}).catch(() => {}); S.refCode = null; }
     S.regPick = null;
     modal(`<div style="text-align:center"><div style="font-size:40px">📨</div><h2>ส่งลงทะเบียนแล้ว</h2><p class="sm mut">สถานะ: รอตรวจสอบ — เปิดแท็บ "สนามของฉัน" เพื่อดูรหัสยืนยันและขั้นตอนถัดไป</p><button class="btn" style="margin-top:12px" onclick="closeModal();go('venue')">ดูสนามของฉัน</button></div>`);
   } catch (e) { toast(errMsg(e)); $('rGo').disabled = false; }
@@ -683,6 +713,9 @@ function inviteMsg(name, link) { return `สวัสดีครับ ที�
 async function vInvite() {
   const { data, error } = await sb.from('venues').select('id,name,invite_code,created_at').eq('status', 'invited').order('created_at', {ascending: false});
   if (error) throw error;
+  const { data: leads } = await sb.from('venue_leads').select('*').eq('status', 'new').order('created_at');
+  S._leads = leads || [];
+  const lead = S._leads.find(l => l.id === S.leadId);
   if (S.lastInvite) {
     const L = appLink('invite=' + S.lastInvite.code), M = inviteMsg(S.lastInvite.name, L);
     return `<h2>ส่งลิงก์นี้ให้เจ้าของสนาม</h2><div class="card" style="text-align:center"><b>${esc(S.lastInvite.name)}</b>
@@ -693,9 +726,12 @@ async function vInvite() {
       <button class="btn ghost" onclick="S.lastInvite=null;S.regPick=null;render()">ชวนสนามถัดไป</button></div>`;
   }
   return `<h2>ชวนสนามเข้าระบบ</h2><p class="sm mut" style="margin-bottom:12px">กรอกข้อมูลจาก Google Maps/เพจของสนามระหว่างคุยโทรศัพท์ แล้วส่งลิงก์ให้เจ้าของ เจ้าของเหลือแค่ใส่บัญชีรับเงินและรูป 3 รูป</p>
-    <div class="card"><label style="margin-top:0">ชื่อสนาม</label><input id="rName">
-      <label>ลิงก์ Google Maps หรือเพจของสนาม</label><input id="rLink" inputmode="url" placeholder="https://">
-      <label>เบอร์โทรสาธารณะของสนาม (เบอร์ที่กำลังโทร)</label><input id="rPhone" inputmode="tel">
+    ${S._leads.length ? `<h3 style="margin-top:0">สนามที่นักแบดแนะนำมา (${S._leads.length})</h3>` + S._leads.map(l => `<div class="card" style="padding:10px 12px;${l.id === S.leadId ? 'border:2px solid var(--g)' : ''}"><b>${esc(l.venue_name)}</b>
+      <div class="sm mut">${esc(l.phone || '-')}${l.note ? ' · ' + esc(l.note) : ''}</div>${l.link ? `<div class="sm" style="word-break:break-all">${esc(l.link)}</div>` : ''}
+      <div class="row" style="margin-top:6px"><button class="btn sm" onclick="S.leadId='${l.id}';render()">ใช้ข้อมูลนี้ชวน</button><button class="btn ghost sm" onclick="adm('admin_close_lead',{p_lead:'${l.id}'},'ปิดรายการแล้ว')">สนามไม่สนใจ</button></div></div>`).join('') : ''}
+    <div class="card">${lead ? `<div class="chip" style="margin-bottom:6px">🎁 ให้เครดิตผู้แนะนำอัตโนมัติ</div>` : ''}<label style="margin-top:0">ชื่อสนาม</label><input id="rName" value="${esc(lead?.venue_name || '')}">
+      <label>ลิงก์ Google Maps หรือเพจของสนาม</label><input id="rLink" inputmode="url" placeholder="https://" value="${esc(lead?.link || '')}">
+      <label>เบอร์โทรสาธารณะของสนาม (เบอร์ที่กำลังโทร)</label><input id="rPhone" inputmode="tel" value="${esc(lead?.phone || '')}">
       <label>ที่อยู่</label><textarea id="rAddr" rows="2"></textarea>
       <div class="grid2"><div><label>จำนวนคอร์ท</label><input id="rCourts" type="number" value="4" min="1"></div><div><label>ราคา/ชม.</label><input id="rPrice" type="number" value="150"></div></div>
       <div class="grid3"><div><label>เปิด</label><select id="rOpen">${hOpts(9, 0, 23)}</select></div><div><label>ปิด</label><select id="rClose">${hOpts(22, 1, 24)}</select></div><div><label>จองล่วงหน้า (วัน)</label><input id="rAdv" type="number" value="7" min="0" max="90"></div></div>
@@ -712,6 +748,7 @@ async function createInvite() {
   try {
     const r = await rpc('admin_create_invite', {p: {name, address, lat: S.regPick.lat, lng: S.regPick.lng, court_count: +$('rCourts').value, open_hour: +$('rOpen').value, close_hour: +$('rClose').value,
       price_per_hour: +$('rPrice').value, advance_days: +$('rAdv').value, phone: $('rPhone').value, public_link: $('rLink').value.trim()}});
+    if (S.leadId) { await rpc('admin_attach_lead', {p_venue: r.venue_id, p_lead: S.leadId}); S.leadId = null; }
     S.lastInvite = {code: r.invite_code, name}; S.regPick = null; render();
   } catch (e) { toast(errMsg(e)); $('iGo').disabled = false; }
 }
@@ -789,7 +826,7 @@ const SETTING_FIELDS = [
   ['liff_id', 'LIFF ID (เช่น 2001234567-AbCdEfGh)'], ['line_channel_id', 'LINE Login Channel ID'],
   ['promptpay_id', 'พร้อมเพย์ของตีแบต (รับค่าบริการจากสนาม)'], ['platform_account_name', 'ชื่อบัญชีของตีแบต'], ['platform_account_no', 'เลขบัญชีของตีแบต (ไม่บังคับ)'],
   ['booking_fee_per_hour', 'ค่าบริการจอง (บาท/คอร์ท-ชม.)'], ['package_fee_cap', 'เพดานค่าบริการต่อแพ็กเกจก๊วน (เว้นว่าง = ไม่จำกัด)'],
-  ['frontdesk_monthly_fee', 'ค่าระบบหน้าร้าน (บาท/เดือน)'], ['hold_minutes', 'เวลารอชำระ (นาที)'], ['probation_days', 'ช่วงสนามใหม่หลังอนุมัติ (วัน)'], ['probation_max_amount', 'ยอดสูงสุดต่อรายการช่วงสนามใหม่ (บาท)'], ['invite_free_frontdesk_days', 'ฟรีระบบหน้าร้านสำหรับสนามที่ชวนเข้ามา (วัน, 0 = ไม่แจก)'], ['report_threshold', 'จำนวนผู้รายงานที่ทำให้ปิดจองออนไลน์อัตโนมัติ'],
+  ['frontdesk_monthly_fee', 'ค่าระบบหน้าร้าน (บาท/เดือน)'], ['hold_minutes', 'เวลารอชำระ (นาที)'], ['probation_days', 'ช่วงสนามใหม่หลังอนุมัติ (วัน)'], ['probation_max_amount', 'ยอดสูงสุดต่อรายการช่วงสนามใหม่ (บาท)'], ['invite_free_frontdesk_days', 'ฟรีระบบหน้าร้านสำหรับสนามที่ชวนเข้ามา (วัน, 0 = ไม่แจก)'], ['referral_months', 'สิทธิ์จองฟรีค่าบริการของผู้ชวนสนาม (เดือน)'], ['report_threshold', 'จำนวนผู้รายงานที่ทำให้ปิดจองออนไลน์อัตโนมัติ'],
   ['slip_test_mode', 'โหมดทดสอบสลิป (true/false) — ปิดก่อนเปิดใช้จริง'], ['allow_guest_login', 'อนุญาตผู้ใช้ทดลองไม่ผ่าน LINE (true/false) — ปิดก่อนเปิดใช้จริง'],
 ];
 function vSettings() {
