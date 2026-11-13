@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ตีแบต — จองสนามแบดมินตัน</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="phone">
+  <div class="liff"><span class="x" onclick="go(S.role==='customer'?'home':S.role==='owner'?'today':'approve')">🏸</span><div class="t">ตีแบต<small id="who">จองสนามแบดมินตัน</small></div><span class="x" onclick="showMe()">⋯</span></div>
+  <div id="banner"></div>
+  <div class="roles" id="roles"></div>
+  <div id="view"><div class="loading"><div class="spin"></div>กำลังเข้าสู่ระบบ…</div></div>
+  <div class="nav" id="nav"></div>
+</div>
+<div id="modal"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
