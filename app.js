@@ -29,7 +29,7 @@ const ERR = {
   name_required: 'กรุณากรอกชื่อผู้จอง', too_many_holds: 'คุณมีรายการรอชำระค้างอยู่ 3 รายการ กรุณาชำระหรือยกเลิกก่อน',
   online_disabled: 'สนามนี้ยังไม่เปิดรับจองออนไลน์', package_unavailable: 'คอร์ทว่างไม่พอสำหรับแพ็กเกจนี้', package_not_found: 'ไม่พบแพ็กเกจ', package_invalid: 'แพ็กเกจไม่ตรงกับเวลาทำการของสนาม',
   frontdesk_required: 'ต้องเปิดใช้ระบบหน้าร้านก่อน', forbidden: 'ไม่มีสิทธิ์ทำรายการนี้', nothing_due: 'ไม่มีค่าบริการค้างชำระ',
-  payment_account_required: 'กรุณากรอกพร้อมเพย์และชื่อบัญชีรับเงิน', too_many_pending: 'มีสนามรออนุมัติมากเกินไป', order_not_found: 'ไม่พบรายการ', line_required: 'ต้องเข้าสู่ระบบด้วย LINE ก่อนลงทะเบียนสนาม', documents_required: 'กรุณาแนบรูปหลักฐานให้ครบ 3 รูป', public_link_required: 'กรุณาใส่ลิงก์ Google Maps หรือเพจของสนาม (ขึ้นต้นด้วย https://)', verification_incomplete: 'ยังตรวจสอบไม่ครบทุกข้อ และต้องบันทึกชื่อบัญชีที่เห็นจากการโอนทดสอบ', probation_limit: 'สนามนี้เพิ่งเข้าระบบ จึงจำกัดยอดต่อรายการไว้ชั่วคราว กรุณาลดจำนวนชั่วโมง', report_requires_booking: 'รายงานได้เฉพาะผู้ที่เคยจองสนามนี้', locked_after_approval: 'ข้อมูลนี้ล็อกหลังอนุมัติ กรุณาติดต่อทีมตีแบต',
+  payment_account_required: 'กรุณากรอกพร้อมเพย์และชื่อบัญชีรับเงิน', too_many_pending: 'มีสนามรออนุมัติมากเกินไป', order_not_found: 'ไม่พบรายการ', invite_not_found: 'ลิงก์คำเชิญนี้ใช้ไม่ได้หรือถูกใช้ไปแล้ว', line_required: 'ต้องเข้าสู่ระบบด้วย LINE ก่อนลงทะเบียนสนาม', documents_required: 'กรุณาแนบรูปหลักฐานให้ครบ 3 รูป', public_link_required: 'กรุณาใส่ลิงก์ Google Maps หรือเพจของสนาม (ขึ้นต้นด้วย https://)', verification_incomplete: 'ยังตรวจสอบไม่ครบทุกข้อ และต้องบันทึกชื่อบัญชีที่เห็นจากการโอนทดสอบ', probation_limit: 'สนามนี้เพิ่งเข้าระบบ จึงจำกัดยอดต่อรายการไว้ชั่วคราว กรุณาลดจำนวนชั่วโมง', report_requires_booking: 'รายงานได้เฉพาะผู้ที่เคยจองสนามนี้', locked_after_approval: 'ข้อมูลนี้ล็อกหลังอนุมัติ กรุณาติดต่อทีมตีแบต',
 };
 const errMsg = e => ERR[e?.message] || e?.message || 'เกิดข้อผิดพลาด';
 function toast(t) { const el = document.createElement('div'); el.className = 'toast'; el.textContent = t; document.body.appendChild(el); setTimeout(() => el.remove(), 2800); }
@@ -41,6 +41,10 @@ function photoOf(v) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200"><rect width="320" height="200" fill="#dfeee6"/><rect x="60" y="50" width="200" height="110" fill="#2f9e62" stroke="#fff" stroke-width="3"/><line x1="60" y1="105" x2="260" y2="105" stroke="#fff" stroke-width="3"/><line x1="160" y1="50" x2="160" y2="160" stroke="#fff"/></svg>`;
   return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
 }
+
+const DEEP0 = new URLSearchParams(location.search);
+function appLink(q) { return (S.settings.liff_id ? `https://liff.line.me/${S.settings.liff_id}` : location.origin + location.pathname) + '?' + q; }
+async function copyText(t) { try { await navigator.clipboard.writeText(t); toast('คัดลอกแล้ว'); } catch (_) { toast('คัดลอกไม่ได้ — กดค้างที่ข้อความเพื่อคัดลอก'); } }
 
 // ---------- state ----------
 const S = {
@@ -92,6 +96,9 @@ async function boot() {
     $('banner').innerHTML = b.length ? `<div class="banner">${b.join(' · ')}</div>` : '';
     locate();
     S.date = today(); S.ownerDate = today();
+    const dp = new URLSearchParams(location.search), inv = dp.get('invite') || DEEP0.get('invite'), dv = dp.get('v') || DEEP0.get('v');
+    if (inv) { S.role = 'owner'; S.route = 'claim'; S.inviteCode = inv; }
+    else if (dv) { await loadVenues(); const v = S.venues.find(x => x.id === dv); if (v) { S.venue = v; S.route = 'venue'; S.sel = []; } }
     render();
   } catch (e) {
     $('view').innerHTML = `<div class="wrap"><div class="card"><b>เข้าสู่ระบบไม่สำเร็จ</b><p class="sm mut" style="margin:6px 0 12px">${esc(errMsg(e))}</p><button class="btn" onclick="location.reload()">ลองใหม่</button></div></div>`;
@@ -118,8 +125,8 @@ function go(route, extra) {
 function setRole(r) { S.role = r; go({customer: 'home', owner: 'today', admin: 'approve'}[r]); }
 const VIEWS = {
   customer: {home: vHome, venue: vVenue, pay: vPay, bookings: vMyBookings},
-  owner: {today: vOwnerToday, pricing: vPricing, venue: vOwnerVenue, register: vRegister, pay: vPay},
-  admin: {approve: vApprove, revenue: vRevenue, slips: vSlips, settings: vSettings},
+  owner: {today: vOwnerToday, pricing: vPricing, venue: vOwnerVenue, register: vRegister, pay: vPay, claim: vClaim},
+  admin: {approve: vApprove, invite: vInvite, revenue: vRevenue, slips: vSlips, settings: vSettings},
 };
 let renderSeq = 0;
 async function render() {
@@ -130,7 +137,7 @@ async function render() {
   const navs = {
     customer: [['home', '🔍', 'หาสนาม'], ['bookings', '🎫', 'การจองของฉัน']],
     owner: [['today', '📅', 'ตารางจอง'], ['pricing', '🏷️', 'ราคา/โปร'], ['venue', '🏟️', 'สนามของฉัน'], ['register', '➕', 'ลงทะเบียน']],
-    admin: [['approve', '✅', 'อนุมัติ'], ['revenue', '💰', 'รายได้'], ['slips', '🧾', 'สลิป'], ['settings', '⚙️', 'ตั้งค่า']],
+    admin: [['approve', '✅', 'อนุมัติ'], ['invite', '📞', 'ชวนสนาม'], ['revenue', '💰', 'รายได้'], ['slips', '🧾', 'สลิป'], ['settings', '⚙️', 'ตั้งค่า']],
   }[S.role];
   const act = S.role === 'customer' && ['venue', 'pay'].includes(S.route) ? 'home' : S.route;
   $('nav').innerHTML = navs.map(([r, i, t]) => `<button class="${act === r ? 'on' : ''}" onclick="go('${r}')"><span class="i">${i}</span>${t}</button>`).join('');
@@ -148,7 +155,7 @@ async function render() {
 }
 function afterRender() {
   if (S.role === 'customer' && S.route === 'home' && S.homeTab === 'map') drawHomeMap();
-  if (S.role === 'owner' && S.route === 'register') drawPickMap();
+  if ((S.role === 'owner' && S.route === 'register') || (S.role === 'admin' && S.route === 'invite' && !S.lastInvite)) drawPickMap();
   if (S.role === 'admin' && S.route === 'approve') drawApproveMaps();
   if (S.route === 'pay') startCountdown();
 }
@@ -405,7 +412,7 @@ async function showOrder(id) { try { const o = await rpc('get_order', {p_order: 
 
 // ---------- owner ----------
 async function loadMyVenues() {
-  const { data, error } = await sb.from('venues').select('*, promos(*), packages(*)').eq('owner_id', S.user.id).order('created_at');
+  const { data, error } = await sb.from('venues').select('*, promos(*), packages(*)').eq('owner_id', S.user.id).neq('status', 'invited').order('created_at');
   if (error) throw error;
   S.myVenues = data;
   if (!data.find(v => v.id === S.ownerVenueId)) S.ownerVenueId = data[0]?.id || null;
@@ -553,6 +560,10 @@ async function vOwnerVenue() {
       <div><label>ปิด</label><select onchange="saveVenue({close_hour:+this.value})">${hOpts(v.close_hour, 1, 24)}</select></div></div>
       <label>เบอร์ติดต่อสนาม</label><input value="${esc(v.phone || '')}" onchange="saveVenue({phone:this.value})">
       <label>เปลี่ยนรูปสนาม</label><input type="file" accept="image/*" onchange="changePhoto(this.files[0])"></div>
+    ${v.status === 'approved' ? `<div class="card" style="text-align:center"><b>ลิงก์จองของสนามคุณ</b><div class="sm mut">พิมพ์ QR นี้ติดหน้าเคาน์เตอร์ หรือส่งลิงก์ในกลุ่ม LINE ของก๊วน ลูกค้าเปิดแล้วเข้าหน้าจองของสนามคุณทันที</div>
+      <div style="max-width:190px;margin:10px auto">${qrSvg(appLink('v=' + v.id))}</div>
+      <div class="sm" style="word-break:break-all;margin-bottom:8px">${esc(appLink('v=' + v.id))}</div>
+      <button class="btn sm" onclick="copyText(appLink('v=${v.id}'))">คัดลอกลิงก์</button></div>` : ''}
     <div class="card"><b>บัญชีรับเงินของสนาม</b><div class="sm mut" style="margin-top:2px">${v.status === 'pending' ? 'ลูกค้าสแกนโอนเข้าบัญชีนี้โดยตรง และระบบใช้ตรวจสลิป' : '🔒 ล็อกหลังอนุมัติเพื่อความปลอดภัย — ต้องการเปลี่ยนบัญชีให้ติดต่อทีมตีแบต'}</div>
       <label>พร้อมเพย์ (เบอร์มือถือ หรือเลขประจำตัวผู้เสียภาษี)</label><input inputmode="numeric" value="${esc(vp?.promptpay_id || '')}" onchange="saveVenue({promptpay_id:this.value})" ${v.status === 'pending' ? '' : 'disabled'}>
       <label>ชื่อบัญชี (ตามที่แสดงในแอปธนาคาร)</label><input value="${esc(vp?.account_name || '')}" onchange="saveVenue({account_name:this.value})" ${v.status === 'pending' ? '' : 'disabled'}>
@@ -632,9 +643,82 @@ async function submitReg() {
   } catch (e) { toast(errMsg(e)); $('rGo').disabled = false; }
 }
 
+// ---------- invite: owner claims a venue the team prepared ----------
+async function vClaim() {
+  const pv = await rpc('invite_preview', {p_code: S.inviteCode});
+  if (!pv) return `<div class="card"><b>ลิงก์คำเชิญนี้ใช้ไม่ได้</b><p class="sm mut" style="margin-top:6px">อาจถูกใช้ไปแล้วหรือถูกยกเลิก กรุณาติดต่อทีมตีแบต</p><button class="btn ghost" style="margin-top:10px" onclick="go('today')">ไปหน้าสนามของฉัน</button></div>`;
+  return `<h2>ยืนยันเป็นเจ้าของสนาม</h2>
+    <div class="card"><b>${esc(pv.name)}</b><div class="sm mut">${esc(pv.address)}</div>
+      <div class="sm" style="margin-top:6px">${pv.court_count} คอร์ท · ${baht(pv.price_per_hour)}/ชม. · ${hh(pv.open_hour)}–${hh(pv.close_hour)}</div>
+      <div class="sm mut" style="margin-top:4px">ทีมตีแบตกรอกข้อมูลนี้ไว้ให้แล้ว แก้ไขได้ภายหลัง</div>
+      ${pv.free_days > 0 ? `<div class="chip" style="margin-top:8px">ฟรีระบบจองหน้าร้าน ${pv.free_days} วันแรก</div>` : ''}</div>
+    <div class="card"><b>เหลืออีก 2 อย่าง ใช้เวลาราว 2 นาที</b>
+      <h3>1. บัญชีรับเงินของสนาม</h3>
+      <label style="margin-top:0">พร้อมเพย์ (เบอร์มือถือ หรือเลขประจำตัวผู้เสียภาษี)</label><input id="cPP" inputmode="numeric">
+      <label>ชื่อบัญชี (ตามที่แสดงในแอปธนาคาร)</label><input id="cAcc">
+      <label>เลขบัญชีธนาคารที่ผูกพร้อมเพย์ (ไม่บังคับ)</label><input id="cBank" inputmode="numeric">
+      <h3>2. รูปยืนยัน 3 รูป (เห็นเฉพาะทีมตีแบต)</h3>
+      <label style="margin-top:0">หน้าสมุดบัญชี หรือหน้าจอพร้อมเพย์ที่เห็นชื่อบัญชี</label><input id="dAcc" type="file" accept="image/*">
+      <label>หน้าสนามที่เห็นป้ายชื่อ</label><input id="dFront" type="file" accept="image/*">
+      <label>ภายในสนามที่เห็นคอร์ท</label><input id="dIn" type="file" accept="image/*">
+      <button class="btn" id="cGo2" style="margin-top:14px" onclick="submitClaim()">ยืนยันและส่งให้ตรวจสอบ</button></div>`;
+}
+async function submitClaim() {
+  const docs = ['dAcc', 'dFront', 'dIn'].map(i => $(i).files[0]);
+  if (!$('cPP').value.trim() || !$('cAcc').value.trim()) { toast('กรอกพร้อมเพย์และชื่อบัญชีรับเงิน'); return; }
+  if (docs.some(d => !d)) { toast('กรุณาแนบรูปให้ครบ 3 รูป'); return; }
+  $('cGo2').disabled = true;
+  try {
+    toast('กำลังอัปโหลด…');
+    const [doc_account, doc_front, doc_inside] = await Promise.all(docs.map(uploadDoc));
+    S.ownerVenueId = await rpc('claim_invite', {p_code: S.inviteCode, p: {promptpay_id: $('cPP').value, account_name: $('cAcc').value, bank_account_no: $('cBank').value, doc_account, doc_front, doc_inside}});
+    S.inviteCode = null;
+    try { history.replaceState(null, '', location.pathname); } catch (_) {}
+    go('venue');
+  } catch (e) { toast(errMsg(e)); $('cGo2').disabled = false; }
+}
+
+// ---------- admin: invite a venue during a phone call ----------
+function inviteMsg(name, link) { return `สวัสดีครับ ทีมตีแบต (แอปจองสนามแบด) ครับ\nลิงก์เปิดระบบจองออนไลน์ของ ${name}:\n${link}\n\nเปิดในแอป LINE แล้วใส่พร้อมเพย์รับเงิน + รูป 3 รูป ใช้เวลาราว 2 นาทีครับ`; }
+async function vInvite() {
+  const { data, error } = await sb.from('venues').select('id,name,invite_code,created_at').eq('status', 'invited').order('created_at', {ascending: false});
+  if (error) throw error;
+  if (S.lastInvite) {
+    const L = appLink('invite=' + S.lastInvite.code), M = inviteMsg(S.lastInvite.name, L);
+    return `<h2>ส่งลิงก์นี้ให้เจ้าของสนาม</h2><div class="card" style="text-align:center"><b>${esc(S.lastInvite.name)}</b>
+      <div style="max-width:170px;margin:10px auto">${qrSvg(L)}</div><div class="sm" style="word-break:break-all">${esc(L)}</div>
+      <div class="grid2" style="margin-top:10px"><button class="btn ghost" onclick="copyText(appLink('invite=${S.lastInvite.code}'))">คัดลอกลิงก์</button><button class="btn" onclick="copyText(inviteMsg(S.lastInvite.name, appLink('invite=${S.lastInvite.code}')))">คัดลอกข้อความพร้อมส่ง</button></div>
+      <pre class="sm" style="text-align:left;white-space:pre-wrap;background:var(--bg);padding:10px;border-radius:10px;margin-top:10px">${esc(M)}</pre>
+      <p class="sm mut">ระหว่างยังคุยสายอยู่: ให้เจ้าของเปิดลิงก์ทำจนได้รหัส 6 หลัก แล้วอ่านรหัสให้ฟัง — ถ้าคุณโทรไปที่เบอร์สาธารณะของสนาม ถือว่าผ่านข้อตรวจเบอร์โทรได้เลย</p>
+      <button class="btn ghost" onclick="S.lastInvite=null;S.regPick=null;render()">ชวนสนามถัดไป</button></div>`;
+  }
+  return `<h2>ชวนสนามเข้าระบบ</h2><p class="sm mut" style="margin-bottom:12px">กรอกข้อมูลจาก Google Maps/เพจของสนามระหว่างคุยโทรศัพท์ แล้วส่งลิงก์ให้เจ้าของ เจ้าของเหลือแค่ใส่บัญชีรับเงินและรูป 3 รูป</p>
+    <div class="card"><label style="margin-top:0">ชื่อสนาม</label><input id="rName">
+      <label>ลิงก์ Google Maps หรือเพจของสนาม</label><input id="rLink" inputmode="url" placeholder="https://">
+      <label>เบอร์โทรสาธารณะของสนาม (เบอร์ที่กำลังโทร)</label><input id="rPhone" inputmode="tel">
+      <label>ที่อยู่</label><textarea id="rAddr" rows="2"></textarea>
+      <div class="grid2"><div><label>จำนวนคอร์ท</label><input id="rCourts" type="number" value="4" min="1"></div><div><label>ราคา/ชม.</label><input id="rPrice" type="number" value="150"></div></div>
+      <div class="grid3"><div><label>เปิด</label><select id="rOpen">${hOpts(9, 0, 23)}</select></div><div><label>ปิด</label><select id="rClose">${hOpts(22, 1, 24)}</select></div><div><label>จองล่วงหน้า (วัน)</label><input id="rAdv" type="number" value="7" min="0" max="90"></div></div>
+      <label>ปักหมุดตำแหน่งสนาม</label><div id="pick" class="leaf" style="height:240px"></div><div class="sm mut" id="regLL" style="margin-top:4px">ยังไม่ได้ปักหมุด</div>
+      <button class="btn" id="iGo" style="margin-top:14px" onclick="createInvite()">สร้างลิงก์คำเชิญ</button></div>` +
+    (data.length ? `<h3>คำเชิญที่ยังไม่ตอบรับ (${data.length})</h3>` + data.map(v => `<div class="card" style="padding:10px 12px"><div class="row between"><b>${esc(v.name)}</b><span class="sm mut">${new Date(v.created_at).toLocaleDateString('th-TH', {day: 'numeric', month: 'short'})}</span></div>
+      <div class="row" style="margin-top:6px"><button class="btn ghost sm" onclick="copyText(appLink('invite=${v.invite_code}'))">คัดลอกลิงก์</button><button class="btn ghost sm" onclick="adm('admin_cancel_invite',{p_venue:'${v.id}'},'ยกเลิกคำเชิญแล้ว')">ยกเลิก</button></div></div>`).join('') : '');
+}
+async function createInvite() {
+  const name = $('rName').value.trim(), address = $('rAddr').value.trim();
+  if (!name || !address || !S.regPick) { toast('กรอกชื่อ ที่อยู่ และปักหมุดตำแหน่ง'); return; }
+  if (+$('rClose').value <= +$('rOpen').value) { toast('เวลาปิดต้องหลังเวลาเปิด'); return; }
+  $('iGo').disabled = true;
+  try {
+    const r = await rpc('admin_create_invite', {p: {name, address, lat: S.regPick.lat, lng: S.regPick.lng, court_count: +$('rCourts').value, open_hour: +$('rOpen').value, close_hour: +$('rClose').value,
+      price_per_hour: +$('rPrice').value, advance_days: +$('rAdv').value, phone: $('rPhone').value, public_link: $('rLink').value.trim()}});
+    S.lastInvite = {code: r.invite_code, name}; S.regPick = null; render();
+  } catch (e) { toast(errMsg(e)); $('iGo').disabled = false; }
+}
+
 // ---------- admin ----------
 async function vApprove() {
-  const { data, error } = await sb.from('venues').select('*').neq('status', 'rejected').order('created_at', {ascending: false});
+  const { data, error } = await sb.from('venues').select('*').in('status', ['pending', 'approved']).order('created_at', {ascending: false});
   if (error) throw error;
   const pend = data.filter(v => v.status === 'pending'), ok = data.filter(v => v.status === 'approved');
   S._pend = pend;
@@ -705,7 +789,7 @@ const SETTING_FIELDS = [
   ['liff_id', 'LIFF ID (เช่น 2001234567-AbCdEfGh)'], ['line_channel_id', 'LINE Login Channel ID'],
   ['promptpay_id', 'พร้อมเพย์ของตีแบต (รับค่าบริการจากสนาม)'], ['platform_account_name', 'ชื่อบัญชีของตีแบต'], ['platform_account_no', 'เลขบัญชีของตีแบต (ไม่บังคับ)'],
   ['booking_fee_per_hour', 'ค่าบริการจอง (บาท/คอร์ท-ชม.)'], ['package_fee_cap', 'เพดานค่าบริการต่อแพ็กเกจก๊วน (เว้นว่าง = ไม่จำกัด)'],
-  ['frontdesk_monthly_fee', 'ค่าระบบหน้าร้าน (บาท/เดือน)'], ['hold_minutes', 'เวลารอชำระ (นาที)'], ['probation_days', 'ช่วงสนามใหม่หลังอนุมัติ (วัน)'], ['probation_max_amount', 'ยอดสูงสุดต่อรายการช่วงสนามใหม่ (บาท)'], ['report_threshold', 'จำนวนผู้รายงานที่ทำให้ปิดจองออนไลน์อัตโนมัติ'],
+  ['frontdesk_monthly_fee', 'ค่าระบบหน้าร้าน (บาท/เดือน)'], ['hold_minutes', 'เวลารอชำระ (นาที)'], ['probation_days', 'ช่วงสนามใหม่หลังอนุมัติ (วัน)'], ['probation_max_amount', 'ยอดสูงสุดต่อรายการช่วงสนามใหม่ (บาท)'], ['invite_free_frontdesk_days', 'ฟรีระบบหน้าร้านสำหรับสนามที่ชวนเข้ามา (วัน, 0 = ไม่แจก)'], ['report_threshold', 'จำนวนผู้รายงานที่ทำให้ปิดจองออนไลน์อัตโนมัติ'],
   ['slip_test_mode', 'โหมดทดสอบสลิป (true/false) — ปิดก่อนเปิดใช้จริง'], ['allow_guest_login', 'อนุญาตผู้ใช้ทดลองไม่ผ่าน LINE (true/false) — ปิดก่อนเปิดใช้จริง'],
 ];
 function vSettings() {
